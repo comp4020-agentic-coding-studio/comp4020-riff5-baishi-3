@@ -1,16 +1,14 @@
 import {
-  circlesOverlap,
   fallSpeed,
   FINAL_BALL_RADIUS_MULTIPLIER,
   FINAL_BALL_TIME_SECONDS,
   gainLife,
-  isFatalCollision,
+  isBonusTouch,
   isFinalBallCaught,
-  isMissedBlue,
+  isHazardTouch,
   isOutOfLives,
   isPickupCaught,
   loseLife,
-  otherHue,
   pickupSpawnIntervalMs,
   spawnIntervalMs,
   STARTING_LIVES,
@@ -44,12 +42,9 @@ const FIRST_SPAWN_DELAY_MS = 1200;
 const MOVE_SPEED = 340; // px/s, keyboard movement
 const MAX_DT = 0.05; // clamp so a backgrounded tab can't leap the sim forward
 
-const prefersReducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-
 let width = 0;
 let height = 0;
 let player: Player;
-let swapButton: { x: number; y: number; radius: number };
 let obstacles: Obstacle[] = [];
 let finalBall: Circle | null = null;
 let pickups: Pickup[] = [];
@@ -81,10 +76,6 @@ function resize() {
     player.x = clamp(player.x, radius, width - radius);
   }
   player.y = height - radius - 24;
-  // Top-right, clear of the player's row: sharing the bottom corner with the
-  // swap button let a resize clamp the player right on top of it, muddling
-  // which circle was "you" — found by playing at the mobile viewport.
-  swapButton = { x: width - 34, y: 34, radius: 20 };
 }
 
 function clamp(value: number, min: number, max: number): number {
@@ -132,12 +123,6 @@ function pointFromEvent(event: PointerEvent): { x: number; y: number } {
   return { x: event.clientX - rect.left, y: event.clientY - rect.top };
 }
 
-function withinSwapButton(x: number, y: number): boolean {
-  const dx = x - swapButton.x;
-  const dy = y - swapButton.y;
-  return dx * dx + dy * dy < (swapButton.radius + 12) ** 2;
-}
-
 canvas.addEventListener("pointerdown", (event) => {
   canvas.focus();
   if (state === "gameover" || state === "win") {
@@ -145,10 +130,6 @@ canvas.addEventListener("pointerdown", (event) => {
     return;
   }
   const { x, y } = pointFromEvent(event);
-  if (withinSwapButton(x, y)) {
-    player.hue = otherHue(player.hue);
-    return;
-  }
   // Keyed by pointerId, not a shared flag: an incidental second touch (a
   // palm edge, a bracing finger) lifting off must not stop the pointer
   // that's actually dragging --- found by simulating two independent
@@ -212,13 +193,6 @@ window.addEventListener("keydown", (event) => {
   } else if (event.key === "ArrowRight" || event.key === "d" || event.key === "D") {
     pressed.add("right");
     event.preventDefault();
-  } else if (event.key === " " || event.key === "Spacebar") {
-    // A toggle, not a hold: the browser's own key auto-repeat would otherwise
-    // keep flipping the hue for as long as Space stays physically held, the
-    // same repeat-vs-fresh-press distinction already guarded on gameover
-    // restart above.
-    if (event.repeat) return;
-    player.hue = otherHue(player.hue);
   }
 });
 
@@ -320,27 +294,23 @@ function update(dt: number) {
   for (const obstacle of obstacles) {
     obstacle.y += speed * dt;
 
-    if (isFatalCollision(player, obstacle)) {
-      if (obstacle.hue === "b") playOnce(sfxHitOrange);
-      gameOver();
-      survivors.push(obstacle);
-      continue;
+    if (isHazardTouch(player, obstacle)) {
+      playOnce(sfxHitOrange);
+      lives = loseLife(lives);
+      if (isOutOfLives(lives)) gameOver();
+      continue; // consumed on contact either way
     }
-    if (circlesOverlap(player, obstacle)) {
-      if (obstacle.hue === "a") playOnce(sfxCatchBlue);
+    if (isBonusTouch(player, obstacle)) {
+      playOnce(sfxCatchBlue);
+      lives = gainLife(lives);
       matchedCount += 1;
-      continue; // same-hue match: absorbed, removed from play
+      continue; // consumed on contact
     }
     if (obstacle.y - obstacle.radius <= height) {
       survivors.push(obstacle);
-      continue;
     }
-    // Fell past the player unmatched. Missing a blue (hue "a") obstacle
-    // costs a life; missing an amber one is a free pass, same as before.
-    if (isMissedBlue(obstacle)) {
-      lives = loseLife(lives);
-      if (isOutOfLives(lives)) gameOver();
-    }
+    // Falling past unmatched is a free pass either way now — only contact
+    // with the player has an effect.
   }
   obstacles = survivors;
   score = Math.floor(elapsedSeconds * 10) + matchedCount * 15;
@@ -381,16 +351,6 @@ function draw() {
   ctx.lineWidth = 2;
   ctx.strokeStyle = "#f5f5f7";
   ctx.stroke();
-
-  const pulse = prefersReducedMotion ? 0 : Math.sin(elapsedSeconds * 4) * 2;
-  ctx.beginPath();
-  ctx.fillStyle = HUE_COLOR[otherHue(player.hue)];
-  ctx.arc(swapButton.x, swapButton.y, swapButton.radius + pulse, 0, Math.PI * 2);
-  ctx.fill();
-  ctx.setLineDash([4, 4]);
-  ctx.strokeStyle = "#f5f5f7";
-  ctx.stroke();
-  ctx.setLineDash([]);
 
   ctx.fillStyle = "#f5f5f7";
   ctx.font = "16px system-ui, sans-serif";

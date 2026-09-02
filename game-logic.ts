@@ -24,15 +24,16 @@ export function circlesOverlap(a: Circle, b: Circle): boolean {
   return dx * dx + dy * dy < r * r;
 }
 
-// The one rule under test: touching a same-hue obstacle is safe (it matches
-// the player's current colour and passes through); touching a different-hue
-// obstacle ends the round. No overlap is always safe, regardless of hue.
-export function isFatalCollision(player: Player, obstacle: Obstacle): boolean {
-  return circlesOverlap(player, obstacle) && player.hue !== obstacle.hue;
+// The player's colour is fixed (hue "a", never swappable) so the two hues
+// split into a fixed hazard and a fixed bonus rather than a relative match:
+// hue "b" (poop) costs a life on touch, hue "a" (banana) grants one. No
+// overlap is always safe either way.
+export function isHazardTouch(player: Player, obstacle: Obstacle): boolean {
+  return circlesOverlap(player, obstacle) && obstacle.hue === "b";
 }
 
-export function otherHue(hue: Hue): Hue {
-  return hue === "a" ? "b" : "a";
+export function isBonusTouch(player: Player, obstacle: Obstacle): boolean {
+  return circlesOverlap(player, obstacle) && obstacle.hue === "a";
 }
 
 // Obstacles fall faster and spawn more often the longer a round runs, so the
@@ -42,14 +43,7 @@ export function fallSpeed(elapsedSeconds: number): number {
   return 160 + Math.min(elapsedSeconds * 8, 260);
 }
 
-// Letting a hue-"a" (blue) obstacle fall past the player unmatched is a
-// miss, not a free pass: it costs a life, on top of the existing
-// wrong-hue-touch instant loss. Missing a hue-"b" obstacle has no penalty.
 export const STARTING_LIVES = 3;
-
-export function isMissedBlue(obstacle: Obstacle): boolean {
-  return obstacle.hue === "a";
-}
 
 export function loseLife(lives: number): number {
   return Math.max(0, lives - 1);

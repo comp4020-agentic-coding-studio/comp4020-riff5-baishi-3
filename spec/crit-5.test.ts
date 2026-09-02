@@ -1,7 +1,8 @@
 import { describe, expect, it } from "vitest";
 import {
-  isFatalCollision,
-  isMissedBlue,
+  gainLife,
+  isBonusTouch,
+  isHazardTouch,
   isOutOfLives,
   loseLife,
   STARTING_LIVES,
@@ -9,44 +10,33 @@ import {
   type Player,
 } from "../game-logic.ts";
 
-// The one rule the brief asks to be under a focused automated test: a
-// collision ends the round only when the player and obstacle are different
-// colours. Same colour is a safe pass-through; no overlap is always safe.
-describe("isFatalCollision", () => {
+// Riff: the player's colour is fixed (never swappable), so the rule is no
+// longer relative to the player's hue. Hue "b" (poop) is a fixed hazard,
+// hue "a" (banana) a fixed bonus. No overlap is always safe either way.
+describe("isHazardTouch / isBonusTouch", () => {
   const player: Player = { x: 100, y: 100, radius: 20, hue: "a" };
 
-  it("ends the round on an overlap with a different-hue obstacle", () => {
+  it("flags an overlapping hue-b obstacle as a hazard", () => {
     const obstacle: Obstacle = { x: 105, y: 100, radius: 20, hue: "b" };
-    expect(isFatalCollision(player, obstacle)).toBe(true);
+    expect(isHazardTouch(player, obstacle)).toBe(true);
+    expect(isBonusTouch(player, obstacle)).toBe(false);
   });
 
-  it("is safe on an overlap with a same-hue obstacle", () => {
+  it("flags an overlapping hue-a obstacle as a bonus", () => {
     const obstacle: Obstacle = { x: 105, y: 100, radius: 20, hue: "a" };
-    expect(isFatalCollision(player, obstacle)).toBe(false);
+    expect(isBonusTouch(player, obstacle)).toBe(true);
+    expect(isHazardTouch(player, obstacle)).toBe(false);
   });
 
-  it("is safe with no overlap, even when the hue differs", () => {
-    const obstacle: Obstacle = { x: 500, y: 500, radius: 20, hue: "b" };
-    expect(isFatalCollision(player, obstacle)).toBe(false);
-  });
-
-  it("is safe with no overlap and a matching hue", () => {
-    const obstacle: Obstacle = { x: 500, y: 500, radius: 20, hue: "a" };
-    expect(isFatalCollision(player, obstacle)).toBe(false);
+  it("is neither with no overlap, regardless of hue", () => {
+    const hazard: Obstacle = { x: 500, y: 500, radius: 20, hue: "b" };
+    const bonus: Obstacle = { x: 500, y: 500, radius: 20, hue: "a" };
+    expect(isHazardTouch(player, hazard)).toBe(false);
+    expect(isBonusTouch(player, bonus)).toBe(false);
   });
 });
 
-// Riff: letting a blue obstacle fall past unmatched now costs a life, on
-// top of the existing wrong-hue-touch instant loss.
-describe("missed-blue lives", () => {
-  it("flags a hue-a obstacle as a missed blue", () => {
-    expect(isMissedBlue({ x: 0, y: 0, radius: 20, hue: "a" })).toBe(true);
-  });
-
-  it("does not flag a hue-b obstacle as a missed blue", () => {
-    expect(isMissedBlue({ x: 0, y: 0, radius: 20, hue: "b" })).toBe(false);
-  });
-
+describe("lives", () => {
   it("starts with three lives", () => {
     expect(STARTING_LIVES).toBe(3);
   });
@@ -63,5 +53,9 @@ describe("missed-blue lives", () => {
 
   it("never drops lives below zero", () => {
     expect(loseLife(0)).toBe(0);
+  });
+
+  it("never rises above the starting cap", () => {
+    expect(gainLife(STARTING_LIVES)).toBe(STARTING_LIVES);
   });
 });
