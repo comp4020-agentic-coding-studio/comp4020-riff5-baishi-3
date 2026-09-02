@@ -38,6 +38,45 @@ function playOnce(src: string): void {
 }
 const sfxCatchBlue = "./assets/audio/catch_blue.wav";
 const sfxHitOrange = "./assets/audio/hit_orange.wav";
+const sfxHealPickup = "./assets/audio/heal_pickup.wav";
+const sfxWinFanfare = "./assets/audio/win_fanfare.wav";
+
+const bgm = new Audio("./assets/audio/bgm_jungle.ogg");
+bgm.loop = true;
+bgm.volume = 0.35;
+let bgmStarted = false;
+let bgmMuted = false;
+
+function startBgm(): void {
+  if (bgmStarted) return;
+  bgmStarted = true;
+  bgm.play().catch(() => {});
+}
+// Autoplay is blocked before any user gesture, so the first pointerdown or
+// keydown anywhere on the page (not just in-game ones) is what starts it ---
+// capture phase so it fires even if the specific handler below returns early.
+window.addEventListener("pointerdown", startBgm, { once: true, capture: true });
+window.addEventListener("keydown", startBgm, { once: true, capture: true });
+
+function toggleBgmMute(): void {
+  bgmMuted = !bgmMuted;
+  bgm.muted = bgmMuted;
+  muteBtn.textContent = bgmMuted ? "🔇" : "🔊";
+}
+const muteBtn = document.createElement("button");
+muteBtn.textContent = "🔊";
+muteBtn.setAttribute("aria-label", "Mute background music");
+muteBtn.style.position = "absolute";
+muteBtn.style.top = "8px";
+muteBtn.style.right = "8px";
+muteBtn.style.zIndex = "10";
+muteBtn.style.border = "none";
+muteBtn.style.borderRadius = "6px";
+muteBtn.style.padding = "4px 8px";
+muteBtn.style.cursor = "pointer";
+muteBtn.style.background = "rgba(15, 18, 32, 0.6)";
+muteBtn.addEventListener("click", toggleBgmMute);
+canvas.parentElement?.appendChild(muteBtn);
 const FIRST_SPAWN_DELAY_MS = 1200;
 const MOVE_SPEED = 340; // px/s, keyboard movement
 const MAX_DT = 0.05; // clamp so a backgrounded tab can't leap the sim forward
@@ -225,6 +264,7 @@ function spawnFinalBall() {
 }
 
 function win() {
+  playOnce(sfxWinFanfare);
   state = "win";
   draggingPointerId = null;
   announcer.textContent = `You caught the final ball! Final score ${score}.`;
@@ -281,6 +321,7 @@ function update(dt: number) {
   for (const pickup of pickups) {
     pickup.y += speed * dt;
     if (isPickupCaught(player, pickup)) {
+      playOnce(sfxHealPickup);
       lives = gainLife(lives);
       continue; // absorbed
     }
