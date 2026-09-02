@@ -316,9 +316,43 @@ function update(dt: number) {
   score = Math.floor(elapsedSeconds * 10) + matchedCount * 15;
 }
 
-function draw() {
-  ctx.fillStyle = "#171b2e";
+// Hand-coded canopy silhouette rather than a sourced image — keeps this
+// purely a draw()-time change with no asset/licensing footprint, and reads
+// as jungle at a glance: a dusk-canopy sky gradient behind two rows of
+// overlapping tree-top bumps (darker/lower = closer, for cheap parallax
+// depth), plus a dark floor strip along the bottom.
+const JUNGLE_SKY_TOP = "#284d2b";
+const JUNGLE_SKY_BOTTOM = "#0b1f0f";
+const CANOPY_BACK = "#1c3d22";
+const CANOPY_FRONT = "#122b16";
+const JUNGLE_FLOOR = "#08150a";
+
+function drawCanopyBand(color: string, topY: number, bumpRadius: number, spacing: number): void {
+  ctx.fillStyle = color;
+  ctx.fillRect(0, topY, width, height - topY);
+  for (let x = -bumpRadius; x < width + bumpRadius; x += spacing) {
+    ctx.beginPath();
+    ctx.arc(x, topY, bumpRadius, 0, Math.PI * 2);
+    ctx.fill();
+  }
+}
+
+function drawJungleBackground(): void {
+  const sky = ctx.createLinearGradient(0, 0, 0, height);
+  sky.addColorStop(0, JUNGLE_SKY_TOP);
+  sky.addColorStop(1, JUNGLE_SKY_BOTTOM);
+  ctx.fillStyle = sky;
   ctx.fillRect(0, 0, width, height);
+
+  drawCanopyBand(CANOPY_BACK, height * 0.18, height * 0.13, height * 0.16);
+  drawCanopyBand(CANOPY_FRONT, height * 0.32, height * 0.15, height * 0.2);
+
+  ctx.fillStyle = JUNGLE_FLOOR;
+  ctx.fillRect(0, height - Math.max(16, height * 0.06), width, height);
+}
+
+function draw() {
+  drawJungleBackground();
 
   for (const obstacle of obstacles) {
     ctx.beginPath();
