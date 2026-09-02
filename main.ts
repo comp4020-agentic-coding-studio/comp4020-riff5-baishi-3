@@ -32,8 +32,36 @@ const ctx = canvas.getContext("2d")!;
 // deuteranopia (RGB distance ~27, versus ~222 for typical vision) — this
 // pair keeps strong separation under protanopia, deuteranopia and
 // tritanopia alike, and both halves contrast near-equally against the
-// canvas background.
+// canvas background. Kept as a fallback fill behind each sprite so a
+// slow-loading image still reads as the right hue at a glance.
 const HUE_COLOR: Record<Hue, string> = { a: "#38bdf8", b: "#f59e0b" };
+
+function loadSprite(src: string): HTMLImageElement {
+  const img = new Image();
+  img.src = src;
+  return img;
+}
+const spriteMonkey = loadSprite("./assets/sprites/monkey.png");
+const spriteBanana = loadSprite("./assets/sprites/banana.png");
+const spritePoop = loadSprite("./assets/sprites/poop.png");
+const spriteHeart = loadSprite("./assets/sprites/heart.png");
+const spriteBasket = loadSprite("./assets/sprites/basket.png");
+const OBSTACLE_SPRITE: Record<Hue, HTMLImageElement> = { a: spriteBanana, b: spritePoop };
+
+// Draws a sprite centred on (x, y) inside the same 2*radius square the old
+// flat-colour circle filled, so the circle-based hitbox in game-logic.ts
+// keeps matching what's on screen. Falls back to the flat hue circle until
+// the image finishes loading, rather than drawing nothing.
+function drawSprite(img: HTMLImageElement, x: number, y: number, radius: number, fallbackColor: string): void {
+  if (img.complete && img.naturalWidth > 0) {
+    ctx.drawImage(img, x - radius, y - radius, radius * 2, radius * 2);
+  } else {
+    ctx.beginPath();
+    ctx.fillStyle = fallbackColor;
+    ctx.arc(x, y, radius, 0, Math.PI * 2);
+    ctx.fill();
+  }
+}
 
 function playOnce(src: string): void {
   const audio = new Audio(src);
@@ -407,44 +435,34 @@ function draw() {
   drawJungleBackground();
 
   for (const obstacle of obstacles) {
-    ctx.beginPath();
-    ctx.fillStyle = HUE_COLOR[obstacle.hue];
-    ctx.arc(obstacle.x, obstacle.y, obstacle.radius, 0, Math.PI * 2);
-    ctx.fill();
+    drawSprite(OBSTACLE_SPRITE[obstacle.hue], obstacle.x, obstacle.y, obstacle.radius, HUE_COLOR[obstacle.hue]);
   }
 
   for (const pickup of pickups) {
-    ctx.beginPath();
-    ctx.fillStyle = "#4ade80";
-    ctx.arc(pickup.x, pickup.y, pickup.radius, 0, Math.PI * 2);
-    ctx.fill();
+    drawSprite(spriteHeart, pickup.x, pickup.y, pickup.radius, "#4ade80");
   }
 
   if (finalBall) {
-    ctx.beginPath();
-    ctx.fillStyle = "#f5f5f7";
-    ctx.arc(finalBall.x, finalBall.y, finalBall.radius, 0, Math.PI * 2);
-    ctx.fill();
-    ctx.lineWidth = 3;
-    ctx.strokeStyle = "#facc15";
-    ctx.stroke();
+    drawSprite(spriteBasket, finalBall.x, finalBall.y, finalBall.radius, "#f5f5f7");
   }
 
-  ctx.beginPath();
-  ctx.fillStyle = HUE_COLOR[player.hue];
-  ctx.arc(player.x, player.y, player.radius, 0, Math.PI * 2);
-  ctx.fill();
-  ctx.lineWidth = 2;
-  ctx.strokeStyle = "#f5f5f7";
-  ctx.stroke();
+  drawSprite(spriteMonkey, player.x, player.y, player.radius, HUE_COLOR[player.hue]);
 
   ctx.fillStyle = "#f5f5f7";
   ctx.font = "16px system-ui, sans-serif";
   ctx.fillText(`Score: ${score}`, 12, 24);
 
-  ctx.fillStyle = "#ef4444";
-  ctx.font = "18px system-ui, sans-serif";
-  ctx.fillText("♥".repeat(lives), 12, 46);
+  const HEART_HUD_SIZE = 18;
+  for (let i = 0; i < lives; i++) {
+    if (spriteHeart.complete && spriteHeart.naturalWidth > 0) {
+      ctx.drawImage(spriteHeart, 12 + i * (HEART_HUD_SIZE + 2), 30, HEART_HUD_SIZE, HEART_HUD_SIZE);
+    } else {
+      ctx.fillStyle = "#ef4444";
+      ctx.font = "18px system-ui, sans-serif";
+      ctx.fillText("♥".repeat(lives), 12, 46);
+      break;
+    }
+  }
 
   if (state === "gameover") {
     ctx.fillStyle = "rgba(15, 18, 32, 0.75)";

@@ -30,3 +30,16 @@ no attribution required.
 (public domain). Sourced from
 [OpenGameArt.org](https://opengameart.org/content/win-sound-effect), no
 attribution required.
+
+## Sprites --- `sprites/monkey.png`, `sprites/banana.png`, `sprites/poop.png`, `sprites/heart.png`, `sprites/basket.png`
+
+Twemoji graphics (🐒 U+1F412, 🍌 U+1F34C, 💩 U+1F4A9, ❤ U+2764, 🧺 U+1F9FA),
+maintained at [jdecked/twemoji](https://github.com/jdecked/twemoji)
+(the community fork that continues the original Twitter emoji set).
+Copyright Twitter, Inc and other contributors, licensed
+[CC-BY 4.0](https://creativecommons.org/licenses/by/4.0/) --- attribution
+required: "Graphics [Twemoji](https://github.com/jdecked/twemoji), licensed
+under [CC-BY 4.0](https://creativecommons.org/licenses/by/4.0/)."
+Downloaded as 72x72 PNGs from the `jdecked/twemoji` assets directory via the
+jsDelivr CDN. `sprites/basket.png` (🧺 "basket") stands in for a fruit basket
+--- no dedicated fruit-basket emoji exists in Unicode.
