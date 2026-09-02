@@ -28,6 +28,14 @@ const ctx = canvas.getContext("2d")!;
 // tritanopia alike, and both halves contrast near-equally against the
 // canvas background.
 const HUE_COLOR: Record<Hue, string> = { a: "#38bdf8", b: "#f59e0b" };
+
+function playOnce(src: string): void {
+  const audio = new Audio(src);
+  audio.volume = 0.5;
+  audio.play().catch(() => {});
+}
+const sfxCatchBlue = "./assets/audio/catch_blue.wav";
+const sfxHitOrange = "./assets/audio/hit_orange.wav";
 const FIRST_SPAWN_DELAY_MS = 1200;
 const MOVE_SPEED = 340; // px/s, keyboard movement
 const MAX_DT = 0.05; // clamp so a backgrounded tab can't leap the sim forward
@@ -277,11 +285,13 @@ function update(dt: number) {
     obstacle.y += speed * dt;
 
     if (isFatalCollision(player, obstacle)) {
+      if (obstacle.hue === "b") playOnce(sfxHitOrange);
       gameOver();
       survivors.push(obstacle);
       continue;
     }
     if (circlesOverlap(player, obstacle)) {
+      if (obstacle.hue === "a") playOnce(sfxCatchBlue);
       matchedCount += 1;
       continue; // same-hue match: absorbed, removed from play
     }
