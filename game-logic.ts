@@ -75,7 +75,7 @@ export function isPickupCaught(player: Player, pickup: Pickup): boolean {
 }
 
 export function pickupSpawnIntervalMs(): number {
-  return 8000;
+  return 15000;
 }
 
 export function spawnIntervalMs(elapsedSeconds: number): number {
@@ -86,7 +86,11 @@ export function spawnIntervalMs(elapsedSeconds: number): number {
 // (any hue — it's the finish line, not another obstacle) ends the game as a
 // win instead of a loss.
 export const FINAL_BALL_TIME_SECONDS = 45;
-export const FINAL_BALL_RADIUS_MULTIPLIER = 3;
+export const FINAL_BALL_RADIUS_MULTIPLIER = 1.5;
+
+// Missing it isn't a soft reset — the next chance is held back this long so a
+// miss actually costs the player time, not just a blink-and-it's-back retry.
+export const FINAL_BALL_RETRY_DELAY_MS = 6000;
 
 export function isFinalBallCaught(player: Player, finalBall: Circle): boolean {
   return circlesOverlap(player, finalBall);

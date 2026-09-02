@@ -2,6 +2,7 @@ import {
   BANANA_SCORE_BONUS,
   fallSpeed,
   FINAL_BALL_RADIUS_MULTIPLIER,
+  FINAL_BALL_RETRY_DELAY_MS,
   FINAL_BALL_TIME_SECONDS,
   gainLife,
   isBonusTouch,
@@ -89,6 +90,7 @@ let height = 0;
 let player: Player;
 let obstacles: Obstacle[] = [];
 let finalBall: Circle | null = null;
+let finalBallCooldownMs = 0;
 let pickups: Pickup[] = [];
 let state: "playing" | "gameover" | "win" = "playing";
 let elapsedSeconds = 0;
@@ -127,6 +129,7 @@ function clamp(value: number, min: number, max: number): number {
 function resetGame() {
   obstacles = [];
   finalBall = null;
+  finalBallCooldownMs = 0;
   pickups = [];
   state = "playing";
   elapsedSeconds = 0;
@@ -304,7 +307,10 @@ function update(dt: number) {
     pickupTimer = pickupSpawnIntervalMs();
   }
 
-  if (!finalBall && elapsedSeconds >= FINAL_BALL_TIME_SECONDS) {
+  if (finalBallCooldownMs > 0) {
+    finalBallCooldownMs -= dt * 1000;
+  }
+  if (!finalBall && finalBallCooldownMs <= 0 && elapsedSeconds >= FINAL_BALL_TIME_SECONDS) {
     spawnFinalBall();
   }
 
@@ -317,8 +323,10 @@ function update(dt: number) {
       return;
     }
     if (finalBall.y - finalBall.radius > height) {
-      // Missed it — try again next lap instead of ending the run.
+      // Missed it — try again after a cooldown instead of ending the run
+      // (or immediately respawning, which made a miss free).
       finalBall = null;
+      finalBallCooldownMs = FINAL_BALL_RETRY_DELAY_MS;
     }
   }
   const pickupSurvivors: Pickup[] = [];
