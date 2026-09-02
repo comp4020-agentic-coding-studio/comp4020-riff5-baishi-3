@@ -26,8 +26,9 @@ export function circlesOverlap(a: Circle, b: Circle): boolean {
 
 // The player's colour is fixed (hue "a", never swappable) so the two hues
 // split into a fixed hazard and a fixed bonus rather than a relative match:
-// hue "b" (poop) costs a life on touch, hue "a" (banana) grants one. No
-// overlap is always safe either way.
+// hue "b" (poop) costs a life on touch, hue "a" (banana) scores points (the
+// falling heart pickup below is the only way to heal). No overlap is always
+// safe either way.
 export function isHazardTouch(player: Player, obstacle: Obstacle): boolean {
   return circlesOverlap(player, obstacle) && obstacle.hue === "b";
 }
@@ -35,6 +36,14 @@ export function isHazardTouch(player: Player, obstacle: Obstacle): boolean {
 export function isBonusTouch(player: Player, obstacle: Obstacle): boolean {
   return circlesOverlap(player, obstacle) && obstacle.hue === "a";
 }
+
+export const BANANA_SCORE_BONUS = 100;
+
+// Poop spawns more often and larger than banana, ~1.2x on each axis, to keep
+// the now-purely-punishing hazard from fading into the background next to a
+// banana that only scores points.
+export const POOP_SPAWN_CHANCE = 0.6;
+export const POOP_RADIUS_MULTIPLIER = 1.2;
 
 // Obstacles fall faster and spawn more often the longer a round runs, so the
 // opening seconds are forgiving and the difficulty caps out fast enough that

@@ -1,4 +1,5 @@
 import {
+  BANANA_SCORE_BONUS,
   fallSpeed,
   FINAL_BALL_RADIUS_MULTIPLIER,
   FINAL_BALL_TIME_SECONDS,
@@ -10,6 +11,8 @@ import {
   isPickupCaught,
   loseLife,
   pickupSpawnIntervalMs,
+  POOP_RADIUS_MULTIPLIER,
+  POOP_SPAWN_CHANCE,
   spawnIntervalMs,
   STARTING_LIVES,
   type Circle,
@@ -138,8 +141,9 @@ function resetGame() {
 }
 
 function spawnObstacle() {
-  const radius = clamp(width * 0.045, 14, 24);
-  const hue: Hue = Math.random() < 0.5 ? "a" : "b";
+  const baseRadius = clamp(width * 0.045, 14, 24);
+  const hue: Hue = Math.random() < POOP_SPAWN_CHANCE ? "b" : "a";
+  const radius = hue === "b" ? baseRadius * POOP_RADIUS_MULTIPLIER : baseRadius;
   obstacles.push({
     x: clamp(Math.random() * width, radius, width - radius),
     y: -radius,
@@ -343,9 +347,8 @@ function update(dt: number) {
     }
     if (isBonusTouch(player, obstacle)) {
       playOnce(sfxCatchBlue);
-      lives = gainLife(lives);
       matchedCount += 1;
-      continue; // consumed on contact
+      continue; // consumed on contact, scores points but no longer heals
     }
     if (obstacle.y - obstacle.radius <= height) {
       survivors.push(obstacle);
@@ -354,7 +357,7 @@ function update(dt: number) {
     // with the player has an effect.
   }
   obstacles = survivors;
-  score = Math.floor(elapsedSeconds * 10) + matchedCount * 15;
+  score = Math.floor(elapsedSeconds * 10) + matchedCount * BANANA_SCORE_BONUS;
 }
 
 // Hand-coded canopy silhouette rather than a sourced image — keeps this
@@ -430,7 +433,10 @@ function draw() {
   ctx.fillStyle = "#f5f5f7";
   ctx.font = "16px system-ui, sans-serif";
   ctx.fillText(`Score: ${score}`, 12, 24);
-  ctx.fillText(`Lives: ${lives}`, 12, 46);
+
+  ctx.fillStyle = "#ef4444";
+  ctx.font = "18px system-ui, sans-serif";
+  ctx.fillText("♥".repeat(lives), 12, 46);
 
   if (state === "gameover") {
     ctx.fillStyle = "rgba(15, 18, 32, 0.75)";
