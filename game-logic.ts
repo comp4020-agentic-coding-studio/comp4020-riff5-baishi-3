@@ -55,8 +55,24 @@ export function loseLife(lives: number): number {
   return Math.max(0, lives - 1);
 }
 
+export function gainLife(lives: number): number {
+  return Math.min(STARTING_LIVES, lives + 1);
+}
+
 export function isOutOfLives(lives: number): boolean {
   return lives <= 0;
+}
+
+// A green pickup, falling like an obstacle but hue-independent: touching it
+// with any player hue heals one life, capped at STARTING_LIVES.
+export type Pickup = Circle;
+
+export function isPickupCaught(player: Player, pickup: Pickup): boolean {
+  return circlesOverlap(player, pickup);
+}
+
+export function pickupSpawnIntervalMs(): number {
+  return 8000;
 }
 
 export function spawnIntervalMs(elapsedSeconds: number): number {

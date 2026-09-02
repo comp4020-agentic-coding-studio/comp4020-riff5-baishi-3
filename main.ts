@@ -3,17 +3,21 @@ import {
   fallSpeed,
   FINAL_BALL_RADIUS_MULTIPLIER,
   FINAL_BALL_TIME_SECONDS,
+  gainLife,
   isFatalCollision,
   isFinalBallCaught,
   isMissedBlue,
   isOutOfLives,
+  isPickupCaught,
   loseLife,
   otherHue,
+  pickupSpawnIntervalMs,
   spawnIntervalMs,
   STARTING_LIVES,
   type Circle,
   type Hue,
   type Obstacle,
+  type Pickup,
   type Player,
 } from "./game-logic.ts";
 
@@ -48,12 +52,14 @@ let player: Player;
 let swapButton: { x: number; y: number; radius: number };
 let obstacles: Obstacle[] = [];
 let finalBall: Circle | null = null;
+let pickups: Pickup[] = [];
 let state: "playing" | "gameover" | "win" = "playing";
 let elapsedSeconds = 0;
 let matchedCount = 0;
 let score = 0;
 let lives = STARTING_LIVES;
 let spawnTimer = FIRST_SPAWN_DELAY_MS;
+let pickupTimer = pickupSpawnIntervalMs();
 let lastTime: number | null = null;
 let draggingPointerId: number | null = null;
 const pressed = new Set<string>();
@@ -88,12 +94,14 @@ function clamp(value: number, min: number, max: number): number {
 function resetGame() {
   obstacles = [];
   finalBall = null;
+  pickups = [];
   state = "playing";
   elapsedSeconds = 0;
   matchedCount = 0;
   score = 0;
   lives = STARTING_LIVES;
   spawnTimer = FIRST_SPAWN_DELAY_MS;
+  pickupTimer = pickupSpawnIntervalMs();
   player.hue = "a";
   player.x = width / 2;
   announcer.textContent = "";
@@ -107,6 +115,15 @@ function spawnObstacle() {
     y: -radius,
     radius,
     hue,
+  });
+}
+
+function spawnPickup() {
+  const radius = clamp(width * 0.045, 14, 24);
+  pickups.push({
+    x: clamp(Math.random() * width, radius, width - radius),
+    y: -radius,
+    radius,
   });
 }
 
@@ -263,6 +280,12 @@ function update(dt: number) {
     spawnTimer = spawnIntervalMs(elapsedSeconds);
   }
 
+  pickupTimer -= dt * 1000;
+  if (pickupTimer <= 0) {
+    spawnPickup();
+    pickupTimer = pickupSpawnIntervalMs();
+  }
+
   if (!finalBall && elapsedSeconds >= FINAL_BALL_TIME_SECONDS) {
     spawnFinalBall();
   }
@@ -280,6 +303,19 @@ function update(dt: number) {
       finalBall = null;
     }
   }
+  const pickupSurvivors: Pickup[] = [];
+  for (const pickup of pickups) {
+    pickup.y += speed * dt;
+    if (isPickupCaught(player, pickup)) {
+      lives = gainLife(lives);
+      continue; // absorbed
+    }
+    if (pickup.y - pickup.radius <= height) {
+      pickupSurvivors.push(pickup);
+    }
+  }
+  pickups = pickupSurvivors;
+
   const survivors: Obstacle[] = [];
   for (const obstacle of obstacles) {
     obstacle.y += speed * dt;
@@ -318,6 +354,13 @@ function draw() {
     ctx.beginPath();
     ctx.fillStyle = HUE_COLOR[obstacle.hue];
     ctx.arc(obstacle.x, obstacle.y, obstacle.radius, 0, Math.PI * 2);
+    ctx.fill();
+  }
+
+  for (const pickup of pickups) {
+    ctx.beginPath();
+    ctx.fillStyle = "#4ade80";
+    ctx.arc(pickup.x, pickup.y, pickup.radius, 0, Math.PI * 2);
     ctx.fill();
   }
 
