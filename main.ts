@@ -1,9 +1,17 @@
 import {
   circlesOverlap,
   fallSpeed,
+  FINAL_BALL_RADIUS_MULTIPLIER,
+  FINAL_BALL_TIME_SECONDS,
   isFatalCollision,
+  isFinalBallCaught,
+  isMissedBlue,
+  isOutOfLives,
+  loseLife,
   otherHue,
   spawnIntervalMs,
+  STARTING_LIVES,
+  type Circle,
   type Hue,
   type Obstacle,
   type Player,
@@ -31,10 +39,12 @@ let height = 0;
 let player: Player;
 let swapButton: { x: number; y: number; radius: number };
 let obstacles: Obstacle[] = [];
-let state: "playing" | "gameover" = "playing";
+let finalBall: Circle | null = null;
+let state: "playing" | "gameover" | "win" = "playing";
 let elapsedSeconds = 0;
 let matchedCount = 0;
 let score = 0;
+let lives = STARTING_LIVES;
 let spawnTimer = FIRST_SPAWN_DELAY_MS;
 let lastTime: number | null = null;
 let draggingPointerId: number | null = null;
@@ -69,10 +79,12 @@ function clamp(value: number, min: number, max: number): number {
 
 function resetGame() {
   obstacles = [];
+  finalBall = null;
   state = "playing";
   elapsedSeconds = 0;
   matchedCount = 0;
   score = 0;
+  lives = STARTING_LIVES;
   spawnTimer = FIRST_SPAWN_DELAY_MS;
   player.hue = "a";
   player.x = width / 2;
@@ -103,7 +115,7 @@ function withinSwapButton(x: number, y: number): boolean {
 
 canvas.addEventListener("pointerdown", (event) => {
   canvas.focus();
-  if (state === "gameover") {
+  if (state === "gameover" || state === "win") {
     resetGame();
     return;
   }
@@ -159,7 +171,7 @@ window.addEventListener("keydown", (event) => {
   ) {
     event.preventDefault();
   }
-  if (state === "gameover") {
+  if (state === "gameover" || state === "win") {
     // A key held down at the moment of a fatal collision --- the likely case,
     // since dying usually happens mid-dodge --- keeps sending repeat keydowns
     // for as long as it stays physically held. Restarting on those wipes the
@@ -204,6 +216,21 @@ document.addEventListener("visibilitychange", () => {
   if (document.hidden) releaseHeldInput();
 });
 
+function spawnFinalBall() {
+  const radius = clamp(width * 0.045, 14, 24) * FINAL_BALL_RADIUS_MULTIPLIER;
+  finalBall = {
+    x: clamp(Math.random() * width, radius, width - radius),
+    y: -radius,
+    radius,
+  };
+}
+
+function win() {
+  state = "win";
+  draggingPointerId = null;
+  announcer.textContent = `You caught the final ball! Final score ${score}.`;
+}
+
 function gameOver() {
   state = "gameover";
   // A collision mid-drag leaves the pointer still down with no pointerup to
@@ -228,7 +255,23 @@ function update(dt: number) {
     spawnTimer = spawnIntervalMs(elapsedSeconds);
   }
 
+  if (!finalBall && elapsedSeconds >= FINAL_BALL_TIME_SECONDS) {
+    spawnFinalBall();
+  }
+
   const speed = fallSpeed(elapsedSeconds);
+
+  if (finalBall) {
+    finalBall.y += speed * dt;
+    if (isFinalBallCaught(player, finalBall)) {
+      win();
+      return;
+    }
+    if (finalBall.y - finalBall.radius > height) {
+      // Missed it — try again next lap instead of ending the run.
+      finalBall = null;
+    }
+  }
   const survivors: Obstacle[] = [];
   for (const obstacle of obstacles) {
     obstacle.y += speed * dt;
@@ -244,6 +287,13 @@ function update(dt: number) {
     }
     if (obstacle.y - obstacle.radius <= height) {
       survivors.push(obstacle);
+      continue;
+    }
+    // Fell past the player unmatched. Missing a blue (hue "a") obstacle
+    // costs a life; missing an amber one is a free pass, same as before.
+    if (isMissedBlue(obstacle)) {
+      lives = loseLife(lives);
+      if (isOutOfLives(lives)) gameOver();
     }
   }
   obstacles = survivors;
@@ -259,6 +309,16 @@ function draw() {
     ctx.fillStyle = HUE_COLOR[obstacle.hue];
     ctx.arc(obstacle.x, obstacle.y, obstacle.radius, 0, Math.PI * 2);
     ctx.fill();
+  }
+
+  if (finalBall) {
+    ctx.beginPath();
+    ctx.fillStyle = "#f5f5f7";
+    ctx.arc(finalBall.x, finalBall.y, finalBall.radius, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.lineWidth = 3;
+    ctx.strokeStyle = "#facc15";
+    ctx.stroke();
   }
 
   ctx.beginPath();
@@ -282,6 +342,7 @@ function draw() {
   ctx.fillStyle = "#f5f5f7";
   ctx.font = "16px system-ui, sans-serif";
   ctx.fillText(`Score: ${score}`, 12, 24);
+  ctx.fillText(`Lives: ${lives}`, 12, 46);
 
   if (state === "gameover") {
     ctx.fillStyle = "rgba(15, 18, 32, 0.75)";
@@ -290,6 +351,20 @@ function draw() {
     ctx.textAlign = "center";
     ctx.font = "bold 28px system-ui, sans-serif";
     ctx.fillText("Game over", width / 2, height / 2 - 16);
+    ctx.font = "18px system-ui, sans-serif";
+    ctx.fillText(`Score: ${score}`, width / 2, height / 2 + 16);
+    ctx.fillText("↻", width / 2, height / 2 + 56);
+    ctx.textAlign = "left";
+  }
+
+  if (state === "win") {
+    ctx.fillStyle = "rgba(15, 18, 32, 0.75)";
+    ctx.fillRect(0, 0, width, height);
+    ctx.fillStyle = "#facc15";
+    ctx.textAlign = "center";
+    ctx.font = "bold 28px system-ui, sans-serif";
+    ctx.fillText("You win!", width / 2, height / 2 - 16);
+    ctx.fillStyle = "#f5f5f7";
     ctx.font = "18px system-ui, sans-serif";
     ctx.fillText(`Score: ${score}`, width / 2, height / 2 + 16);
     ctx.fillText("↻", width / 2, height / 2 + 56);
